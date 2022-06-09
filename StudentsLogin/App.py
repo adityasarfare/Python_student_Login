@@ -1,9 +1,10 @@
 
 from os import abort
 from flask import Flask, render_template, request, redirect, session
+from sqlalchemy import true
 from models import db, StudentModel
 # from flask_admin import Admin
-# from flask_admin.contrib.sqla import ModelView
+from flask_admin.contrib.sqla import ModelView
 
 app = Flask(__name__)
 # admin = Admin(app)
@@ -14,15 +15,16 @@ app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///students.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = "mysceretkey"
 db.init_app(app)
 
 
-# class SecureModelView(ModelView):
-#     def is_accessible(Self):
-#         if "logged_in" in session:
-#             return True
-#         else:
-#             abort(403)
+class SecureModelView(ModelView):
+    def is_accessible(Self):
+        if "logged_in" in session:
+            return True
+        else:
+            abort(403)
 
 # admin.add_view(SecureModelView(Posts, db.session))
 
@@ -62,10 +64,14 @@ def create():
         db.session.commit()
         return redirect('/')
 
-@app.route('/', methods = ['GET'])
+@app.route('/students', methods = ['GET', 'POST'])
 def RetrieveList():
     students = StudentModel.query.all()
     return render_template('index.html', students = students)
+
+
+
+
 
 @app.route('/<int:id>/edit', methods=['GET', 'POST'])
 def update(id):
@@ -101,7 +107,7 @@ def update(id):
 
         db.session.add(students)
         db.session.commit()
-        return redirect('/')
+        return redirect('/students')
         return f"Student with id = {id} Does nit exist"
             
     return render_template('update.html', students = students)
@@ -113,19 +119,34 @@ def delete(id):
         if students:
            db.session.delete(students)
            db.session.commit()
-           return redirect('/')
+           return redirect('/students')
         abort(404)
     return render_template('delete.html')
 
-@app.route("/login")
+@app.route("/login", methods=['GET', 'POST'])
 def login():
-    session['logged_in'] = True
-    return redirect("/admin")
+    if request.method == 'POST':
+        if request.form.get("username") == "aditya" and request.form.get("password") == "abcd":
+           session['logged_in'] = True
+           students = StudentModel.query.all()
+           return render_template('adminpage.html', students = students)
+        else:
+           return render_template('login.html', failed = True)
+    return render_template('login.html')
 
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect("/")
+    return redirect("/students")
+
+
+@app.route('/', methods = ['GET', 'POST'])
+def front():
+    if request.method == 'GET':
+       return render_template('front.html')
+
+
+
 
 
 app.run(host= 'localhost', port=5000)
